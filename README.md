@@ -31,6 +31,7 @@ optional arguments:
 Pastepwnd's basic usage quieries the HIBP API for a compromised email or domain name.
 
 `python pastepwnd.py --email foo@bar.com`
+
 `python pastepwnd.py --domain adobe.com`
 
 Provide Pastepwnd with a new line delimited file of email addresses or domain names.
@@ -39,7 +40,7 @@ Provide Pastepwnd with a new line delimited file of email addresses or domain na
 
 Combine HIBP with Canario's API for increased results. You will need to [register](https://canar.io/register/) with Canario and obtain a valid API Key to use the service.
 
-`python pastepwnd.py --email --file emails.txt --canario 540d7cf6bfd61324c520309d4dd61e4c8107a1598b107e2019b5d3ac73bb13ac`
+`python pastepwnd.py --email --file emails.txt --canario 540d7cf6bfd61324c520309d4dd61e4c8107a13...`
 
 ## Questions, Bugs, Praise?
 -----
