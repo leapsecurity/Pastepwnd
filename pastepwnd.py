@@ -240,11 +240,16 @@ def main():
         if args.email or args.email == None:
             bang = "email"
         else: bang = "host"
-        for target in targets: #domain or emails
-            response = canario.request(canario.search(target, bang))
-            if response:
-                for entity in response["data"]["results"]["results"]:
-                    cresults.append(workbench.format_search(target, entity))
+         try:
+            for target in targets: #domain or emails
+                response = canario.request(canario.search(target, bang))
+                if response:
+                    for entity in response["data"]["results"]["results"]:
+                        cresults.append(workbench.format_search(target, entity))
+        except KeyError as e:
+            print "Canario Search Skipped. Provide a valid Canario API Key.\n"
+            pass
+
         if cresults:
             chtml = output.create_canario_table(cresults)
 
