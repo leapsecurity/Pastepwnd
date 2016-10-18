@@ -240,7 +240,7 @@ def main():
         if args.email or args.email == None:
             bang = "email"
         else: bang = "host"
-         try:
+        try:
             for target in targets: #domain or emails
                 response = canario.request(canario.search(target, bang))
                 if response:
