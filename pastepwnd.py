@@ -257,6 +257,7 @@ def main():
         file = output.write_file(output.create_webpage(hibp_html, chtml))
         print "Completed. {} Pastes found.".format(len(results)+len(cresults))
         print "Results saved to '{}'\n".format(file)
+    else: print "Completed. No results found."
 
 if __name__ == '__main__':
     try:
