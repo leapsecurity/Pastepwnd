@@ -2,7 +2,7 @@
 
 ##Introduction
 -----
-Pastepwnd helps identify compromised email addresses and/or domains. It is a python based wrapper for the [HIBP](https://haveibeenpwned.com) and [Canario](https://canar.io) services. All results are written to an HTML file for easy reference.
+Pastepwnd helps identify compromised email addresses and/or domains. It is a python based wrapper for the [HIBP](https://haveibeenpwned.com) and [Canario](https://canar.io) services. Compromised emails/domains are written to an HTML file along with their respective pastes for easy reference.
 
 ## Installation
 -----
