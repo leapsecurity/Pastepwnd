@@ -1,19 +1,17 @@
 #!/usr/bin/env python2
-# Copyright (c) 2016 Jonathan Broche (@g0jhonny)
+# Copyright (c) 2018 Jonathan Broche (@g0jhonny) @LeapSecurity
 
 import requests, json, argparse, sys, re, time, os
 
-class Canario:
-    def __init__(self, api_key):
-        self.api_key = api_key
+class HackedEmails:
+    def __init__(self):
+        self.api = "https://hacked-emails.com/api"
 
-    def request(self, url):
+    def request(self, email):
+        url = self.api + "?q={}".format(email)
         r = requests.get(url)
         if r.status_code == 200:
             return r.json()        
-
-    def search(self, query, bang): #!email or !host
-        return "https://canar.io/_api/?key={api_key}&action=search&query=!{bang} {query}".format(api_key = self.api_key, bang=bang, query=query)
 
 class HIBP:
     def __init__(self):
@@ -62,11 +60,16 @@ class Workbench:
 
         return [title, domain, date, desc, pwncount, sensitive]
 
-    def format_search(self, target, entity): #canario search action
-        title = entity["title"]
-        refId = entity["referenceid"]
-        url = "<a href='https://canar.io/view/{}' target='_blank'>Source</a>".format(refId)
-        return [title, target, url]
+    def format_hackedemail(self, breach, email):
+        title = breach["title"]
+        date = breach["date_created"]
+        url = breach["source_url"]
+        urls = []
+        if url != "#":
+            urls.append("<a href='{}' target='_blank'>Source</a>".format(url))
+            urls.append("<a href='{}{}' target='_blank'>Cached View</a>".format(self.cachedurl, url))
+
+        return [title, email, date, urls]
 
     def create_pastebinurl(self, Id):
         return "https://pastebin.com/raw.php?i={}".format(Id)
@@ -75,7 +78,7 @@ class Output:
     def __init__(self):
         pass
 
-    def create_webpage(self, hibp_table, canario_table=""):
+    def create_webpage(self, results):
         html = """
         <!DOCTYPE html>
         <html>
@@ -91,30 +94,26 @@ class Output:
                     text-align: left;
                     border-collapse: collapse;
                     font-size: 12px;
-                    width: 80%;
                     margin-bottom: 10px;}
                 th, td {padding: 5px; border-bottom: 1px solid #ddd;}
-                th {background-color: #ee8c25; color: #fff;}
-                tr:hover {background-color: #6c737a;}
+                th {background-color: #f0b128; color: #fff;}
+                tr:hover {background-color: #303336;}
                 td {border-color: inherit; vertical-align: middle;}
-                a {color: #8f9c6c;}
+                a {color: #f5ca6f;}
+                hr {border-top: 1px solid #636c72 margin: 1.5rem 0};
             </style>
         </head>
         <body>
-        <h2>PastePwnd</h2>
+        <h2>Pastepwnd Breach Detector</h2>
         """
 
-        html+= hibp_table
-        if canario_table:
-            html+= canario_table
-        if not hibp_table and not canario_table: 
-            html+= "<p>No results to display.</p>"
+        html+= results
         html += "</body></html>"
         return html
 
-    def create_breach_table(self, results):
+    def create_domain_table(self, results):
         table = """
-        <h4>Have I Been Pwnd Data</h4>
+        <h4>Breaches by Site</h4>
         <table>
         <thead>
         <tr>
@@ -134,15 +133,15 @@ class Output:
         table += "</tbody></table>"
         return table
 
-    def create_paste_table(self, results):
+    def create_email_table(self, results):
         table = """
-        <h4>HIBP Results</h4>
+        <h4>Breaches by Email</h4>
         <table>
         <thead>
         <tr>
         <th>#</th>
         <th>Title</th>
-        <th>Target</th>
+        <th>Email</th>
         <th>Date</th>
         <th>URLs</th>
         </tr>
@@ -152,26 +151,7 @@ class Output:
         for record in results:
             table += "<tr><td>{key}</td><td>{title}</td><td>{email}</td><td>{date}</td><td>{urls}</td></tr>".format(key=results.index(record), title=record[0], email=record[1], date=record[2], urls=str(' | '.join(record[3])))
         table += "</tbody></table>"
-        return table
 
-    def create_canario_table(self, results):
-        table = """
-        <h4>Canario Results</h4>
-        <table>
-        <thead>
-        <tr>
-        <th>#</th>
-        <th>Title</th>
-        <th>Target</th>
-        <th>URL</th>
-        </tr>
-        </thead>
-        <tbody>
-        """
-
-        for record in results:
-            table += "<tr><td>{key}</td><td>{title}</td><td>{target}</td><td>{url}</td></tr>".format(key=results.index(record), title=record[0], target=record[1], url=record[2])
-        table += "</tbody></table>"
         return table
 
     def write_file(self, html):
@@ -180,12 +160,10 @@ class Output:
         return os.path.abspath("pastepwnd.html")
 
 def main():
-    parser = argparse.ArgumentParser(description='Pastepwnd - A HIBP and Canario wrapper by Jonathan Broche (@g0jhonny)', version="1.0.0")  
-    action = parser.add_mutually_exclusive_group(required=True)
-    action.add_argument('--email', nargs='?', default='', help="Query email(s) against HIBP for potential compromises.")
-    action.add_argument('--domain', nargs='?', default='', help="Query domain(s) against HIBP for potential breaches.")
-    parser.add_argument('--file', metavar="file", help="A new line delimited file containing email addresses or domain names.")
-    parser.add_argument('--canario', metavar="string", help="Provide a 64-character Canario API Key. Use Canario API's 'search' and 'view' actions to identify potential compromises.")
+    parser = argparse.ArgumentParser(description='Pastepwnd - A HIBP and Hacked Email wrapper by Jonathan Broche @LeapSecurity', version="1.0.1")  
+    parser.add_argument('-e', '--email', help="An email or new line delimited file containing email addresses to query against HIBP and Hacked Email.")
+    parser.add_argument('-d', '--domain', help="A domain or new line delimited file containing domains to query against HIBP.")
+    parser.add_argument('--html', action='store_true', help="Output result details to HTML file.")
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -193,76 +171,82 @@ def main():
 
     args = parser.parse_args()
 
-    if not args.file and not args.email and not args.domain:
+    if not args.email and not args.domain:
         print "You didn't provide any work for me to do."
         sys.exit(1)
 
     print "\nPastepwnd {}\n".format(parser.version)
 
     hibp = HIBP()
+    he = HackedEmails()
     workbench = Workbench()
-    output = Output()
-    if args.canario: canario = Canario(args.canario)
-    targets, results, cresults = [], [], []
-    hibp_html, chtml = "", ""
+    output = Output()    
+    targets, results = [], []
+    email_html, domain_html = "", ""
 
-    if args.file:
-        with open(args.file) as f:
-            for line in f.readlines():
-                targets.append(line.strip())
-
-    print "Status: Searching HIBP..."
-    if args.email or args.email == None:
-        if args.email: targets.append(args.email.strip())        
+    if args.email:
+        print "Status: Searching for Compromised Emails..."
+        if os.path.isfile(args.email): #if file add emails
+            with open (args.email) as f:
+                for line in f.readlines():
+                    targets.append(line.strip())
+        else: #if not append the provided argument
+            targets.append(args.email.strip())  
+   
         for email in targets:
             if re.match(r"[^@]+@[^@]+\.[^@]+", email): #check for valid email
-                response = hibp.request(hibp.paste(email))
+                response = hibp.request(hibp.paste(email)) #hibp reqeuest
                 if response:
                     for entity in response:
                         results.append(workbench.format_paste(entity, email))
-
+                he_response = he.request(email) #hacked-email.com request
+                if he_response:
+                    for breach in he_response["data"]:
+                        results.append(workbench.format_hackedemail(breach, email))
             else: print "'{}' is not a valid email address.".format(email)
         if results:
-            hibp_html = output.create_paste_table(results)
+            try:
+                for record in results:
+                    print "Title: {}, Date: {}".format(record[0], record[2])
+            except UnicodeEncodeError as e:
+                pass
+            
+            if args.html:
+                email_html = output.create_email_table(results)
+            results, targets = [], []
+        else: print "No compromises identified for {} email.".format(args.email)
+        
 
-    if args.domain or args.domain == None:
-        if args.domain: targets.append(args.domain.strip())
+    if args.domain:
+        print "Status: Searching for Compromised Domains..."
+        if os.path.isfile(args.domain):
+            with open(args.domain) as f:
+                for line in f.readlines():
+                    targets.append(line.strip())
+        else:
+            targets.append(args.domain.strip())
+
         for domain in targets:
             response = hibp.request(hibp.breach(domain))
             if response:
                 for entity in response:
                     results.append(workbench.format_breach(entity, domain))
         if results:
-            hibp_html = output.create_webpage(output.create_breach_table(results))
+            try:
+                for record in results:
+                    print "Title: {}, Date: {}, Pwnd Count: {}".format(record[0], record[2], record[4])
+            except UnicodeEncodeError as e:
+                pass
 
-    if args.canario:
-        print "Status: Searching Canario...\n"
-        if args.email or args.email == None:
-            bang = "email"
-        else: bang = "host"
-        try:
-            for target in targets: #domain or emails
-                response = canario.request(canario.search(target, bang))
-                if response:
-                    for entity in response["data"]["results"]["results"]:
-                        cresults.append(workbench.format_search(target, entity))
-        except KeyError as e:
-            print "Canario Search Skipped. Provide a valid Canario API Key.\n"
-            pass
+            if args.html:
+                domain_html = output.create_domain_table(results)
+        else: print "No compromises identified for {} domain.".format(args.domain)
 
-        if cresults:
-            chtml = output.create_canario_table(cresults)
 
-    if results or cresults:
-        file = output.write_file(output.create_webpage(hibp_html, chtml))
-        print "Completed. {} Pastes found.".format(len(results)+len(cresults))
-        print "Results saved to '{}'\n".format(file)
-    else: print "Completed. No results found."
+    final_html = domain_html + email_html
+    if final_html:
+        file = output.write_file(output.create_webpage(final_html))
+        print "\nHTML Results saved to '{}'\n".format(file)
 
 if __name__ == '__main__':
-    try:
-        main()
-    except IOError as e:
-        print e
-    except Exception as e:
-        print e
+    main()
